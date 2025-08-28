@@ -63,7 +63,7 @@ func (f *Formatter) formatFile() error {
 		return err
 	}
 
-	output, err := f.formatBytes(input)
+	output, err := f.FormatBytes(input)
 	if err != nil {
 		zap.S().Errorf("failed to format file %s: %s", f.settings.fileName, err)
 		return err
@@ -92,7 +92,7 @@ func (f *Formatter) formatStdio() error {
 		return err
 	}
 
-	output, err := f.formatBytes(input)
+	output, err := f.FormatBytes(input)
 	if err != nil {
 		zap.S().Errorf("failed to format data: %s", err)
 		return err
@@ -107,8 +107,8 @@ func (f *Formatter) formatStdio() error {
 	return nil
 }
 
-func (f *Formatter) formatBytes(input []byte) ([]byte, error) {
-	zap.S().Debug("formatBytes")
+func (f *Formatter) FormatBytes(input []byte) ([]byte, error) {
+	zap.S().Debug("FormatBytes")
 	antlrStream := antlr.NewIoStream(bytes.NewBuffer(input))
 	lexer := parser.NewOpenSCADLexer(antlrStream)
 	tokens := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)

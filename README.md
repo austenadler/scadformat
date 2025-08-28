@@ -103,6 +103,13 @@ ok  	github.com/hugheaves/scadformat/internal/formatter	(cached)
 go build cmd/scadformat.go
 ```
 
+#### Build WASM with Make
+
+If you want to make `scadformat.wasm`
+```bash
+make wasm
+```
+
 #### Build without Make
 If you don't have make installed (i.e. on Windows), you can still build the program by running the necessary commands manually:
 
@@ -125,4 +132,9 @@ go test -v ./...
 run on a file
 ```bash
 ./scadformat ./internal/formatter/testdata/solo_adapter.scad
+```
+
+Build the wasm binary
+```bash
+GOOS=js GOARCH=wasm go build -o scadformat.wasm cmd/wasm/main_wasm_js.go
 ```

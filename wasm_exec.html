@@ -1,10 +1,14 @@
 <!DOCTYPE html>
+<!-- Based on default go wasm template (found at $(go env GOROOT)/misc/wasm/wasm_exec.html) -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Formatter</title>
     <style>
+      h1 {
+        margin-top: 0;
+      }
       body {
         margin: 0;
         padding: 20px;
@@ -55,9 +59,130 @@
         background-color: #45a049;
       }
 
-      #success {
-          display: flex;
-          align-items: center;
+      /*
+          This chunk was taken from https://matemarschalko.medium.com/lets-build-a-html-and-css-only-popup-modal-5bf26ec62c7a
+          I am not a web dev, which is why I am copying code from elsewhere, but I kinda can't believe this is what web devs do. It's insane. 111 lines of css for this?
+      */
+      [type="checkbox"] {
+        display: none;
+      }
+      .show-error-button {
+        padding: 10px 20px;
+        cursor: pointer;
+        background-color: #ff0000;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+      }
+      .error-modal {
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        left: 0;
+        top: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.7);
+      }
+      .error-modal-content {
+        padding: 2rem;
+      }
+      .error-modal-box {
+        width: 40%;
+        min-width: 300px;
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: white;
+      }
+      .close-button {
+        position: absolute;
+        right: 15px;
+        top: 15px;
+        padding: 2px 8px;
+        border: 4px solid currentColor;
+        cursor: pointer;
+      }
+      #show-error-modal ~ .error-modal {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .error-modal {
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        position: fixed;
+        left: 0;
+        top: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: opacity 300ms;
+      }
+      #show-error-modal:checked ~ .error-modal {
+        opacity: 1;
+        pointer-events: all;
+      }
+      .banner {
+        width: 100%;
+        height: 50px;
+        background-color: var(-dark-blue);
+        color: white;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        padding: 12px;
+        text-align: center;
+      }
+      .close-banner {
+        padding: 6px 8px;
+        margin-left: 20px;
+        background-color: var(-yellow);
+        color: black;
+      }
+      @keyframes slide-in {
+        from {
+          transform: translateY(100%);
+        }
+        to {
+          transform: translateY(0);
+        }
+      }
+      .banner {
+        width: 100%;
+        height: 50px;
+        background-color: var(-dark-blue);
+        color: white;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        padding: 12px;
+        text-align: center;
+        animation-name: slide-in;
+        animation-delay: 3s;
+        animation-fill-mode: backwards;
+        animation-duration: 300ms;
+      }
+      .banner {
+        /* Existing styles */
+        transform: translateY(100%);
+        transition: transform 300ms;
+      }
+      #banner-toggle:checked ~ .banner {
+        transform: translateY(0);
+      }
+
+      #error {
+        background: red;
+        border-radius: 5px;
+      }
+      #success,
+      #error {
+        display: flex;
+        align-items: center;
       }
       #buttonBox {
         display: flex;
@@ -100,12 +225,10 @@
   </head>
 
   <body ondragover="return false;" ondrop="dropHandler(event)">
-    <!--
-	Add the following polyfill for Microsoft Edge 17/18 support:
-	<script src="https://cdn.jsdelivr.net/npm/text-encoding@0.7.0/lib/encoding.min.js"></script>
-	(see https://caniuse.com/#feat=textencoder)
-	-->
+    <!-- Unmodified go wasm javascript code (found at $(go env GOROOT)/lib/wasm/wasm_exec.js) -->
     <script src="./wasm_exec.js"></script>
+    <h1>SCADFormat WASM</h1>
+    <noscript><h1>Error: This application requires Javascript</h1></noscript>
     <div id="buttonBox">
       <button onclick="openFile();">Open File</button>
       <button onclick="formatText();">Format</button>
@@ -116,6 +239,18 @@
         </svg>
         Formatted Successfully
       </div>
+      <div id="error" style="display: none" onclick="showErrorPopup()">
+        <input type="checkbox" id="show-error-modal" />
+        <label for="show-error-modal" class="show-error-button">
+          Show Error
+        </label>
+        <div class="error-modal">
+          <div class="error-modal-box">
+            <div id="error-message" class="error-modal-content"></div>
+            <label for="show-error-modal" class="close-button"> Close </label>
+          </div>
+        </div>
+      </div>
       <button onclick="saveOutput();">Save Output</button>
       <button onclick="copyToClipboard();">Copy to Clipboard</button>
     </div>
@@ -123,7 +258,11 @@
     <div class="container">
       <div class="textarea-container">
         <h3>Input</h3>
-        <textarea id="input" onpaste="formatText()" placeholder="Enter SCAD code here..."></textarea>
+        <textarea
+          id="input"
+          onpaste="formatText()"
+          placeholder="Enter SCAD code here..."
+        ></textarea>
       </div>
 
       <div class="textarea-container">
@@ -148,6 +287,7 @@
             output.value = formattedString;
             hideSpinner();
             document.getElementById("success").style.display = "flex";
+            document.getElementById("error").style.display = "none";
             output.focus();
             output.select();
           })
@@ -204,9 +344,14 @@
 
       function showError(msg) {
         console.error(msg);
+        document.getElementById("success").style.display = "none";
+        document.getElementById("error").style.display = "flex";
         hideSpinner();
+        document.getElementById("error-message").innerText = msg;
         document.getElementById("output").value = "";
       }
+
+      function showErrorPopup() {}
 
       // function showErrorMessage(message) {
       //   // Display the error message
@@ -223,6 +368,7 @@
       function showSpinner() {
         document.getElementById("spinner").style.visibility = "";
         document.getElementById("success").style.display = "none";
+        document.getElementById("error").style.display = "none";
       }
 
       function hideSpinner() {
@@ -285,36 +431,46 @@
         }
       }
 
-      if (!WebAssembly.instantiateStreaming) {
-        WebAssembly.instantiateStreaming = async (resp, importObject) => {
-          const source = await (await resp).arrayBuffer();
-          return await WebAssembly.instantiate(source, importObject);
-        };
-      }
-
       const go = new Go();
       let mod, inst;
-      // Show the spinner before wasm runs
-      showSpinner();
-      WebAssembly.instantiateStreaming(
-        fetch("scadformat.wasm"),
-        go.importObject
-      )
-        .then((result) => {
-          mod = result.module;
-          inst = result.instance;
-          // The program runs in the background forever, so we can just start it now
-          run();
-          hideSpinner();
-        })
-        .catch((err) => {
-          showError(err);
-        });
 
-      async function run() {
-        await go.run(inst);
-        inst = await WebAssembly.instantiate(mod, go.importObject);
+      function initWasm() {
+        if (typeof WebAssembly === "undefined") {
+          showError("WASM is not enabled");
+        }
+
+        if (!WebAssembly.instantiateStreaming) {
+          WebAssembly.instantiateStreaming = async (resp, importObject) => {
+            const source = await (await resp).arrayBuffer();
+            return await WebAssembly.instantiate(source, importObject);
+          };
+        }
+
+        async function run() {
+          await go.run(inst);
+          inst = await WebAssembly.instantiate(mod, go.importObject);
+        }
+
+        WebAssembly.instantiateStreaming(
+          fetch("scadformat.wasm"),
+          go.importObject
+        )
+          .then((result) => {
+            mod = result.module;
+            inst = result.instance;
+            // The program runs in the background forever, so we can just start it now
+            run();
+            hideSpinner();
+          })
+          .catch((err) => {
+            showError(err);
+          });
       }
+
+      // Show the spinner before wasm runs
+      document.getElementById("show-error-modal").checked = false;
+      showSpinner();
+      initWasm();
     </script>
   </body>
 </html>

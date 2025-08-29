@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<!-- Based on default go wasm template (found at $(go env GOROOT)/misc/wasm/wasm_exec.html) -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Formatter</title>
+    <style>
+      h1 {
+        margin-top: 0;
+      }
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+      }
+
+      .container {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        height: 90vh;
+      }
+
+      .textarea-container {
+        flex: 1;
+        max-width: 50%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      textarea {
+        box-sizing: border-box;
+        height: 100%;
+        width: 100%;
+        height: calc(
+          100% - 30px
+        ); /* Adjust the height to fill the remaining space */
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        resize: vertical;
+        font-family: monospace;
+        flex-grow: 1;
+      }
+
+      button {
+        padding: 10px 20px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      button:hover {
+        background-color: #45a049;
+      }
+
+      /*
+          This chunk was taken from https://matemarschalko.medium.com/lets-build-a-html-and-css-only-popup-modal-5bf26ec62c7a
+          I am not a web dev, which is why I am copying code from elsewhere, but I kinda can't believe this is what web devs do. It's insane. 111 lines of css for this?
+      */
+      [type="checkbox"] {
+        display: none;
+      }
+      .show-error-button {
+        padding: 10px 20px;
+        cursor: pointer;
+        background-color: #ff0000;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+      }
+      .error-modal {
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        left: 0;
+        top: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.7);
+      }
+      .error-modal-content {
+        padding: 2rem;
+      }
+      .error-modal-box {
+        width: 40%;
+        min-width: 300px;
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: white;
+      }
+      .close-button {
+        position: absolute;
+        right: 15px;
+        top: 15px;
+        padding: 2px 8px;
+        border: 4px solid currentColor;
+        cursor: pointer;
+      }
+      #show-error-modal ~ .error-modal {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .error-modal {
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        position: fixed;
+        left: 0;
+        top: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: opacity 300ms;
+      }
+      #show-error-modal:checked ~ .error-modal {
+        opacity: 1;
+        pointer-events: all;
+      }
+      .banner {
+        width: 100%;
+        height: 50px;
+        background-color: var(-dark-blue);
+        color: white;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        padding: 12px;
+        text-align: center;
+      }
+      .close-banner {
+        padding: 6px 8px;
+        margin-left: 20px;
+        background-color: var(-yellow);
+        color: black;
+      }
+      @keyframes slide-in {
+        from {
+          transform: translateY(100%);
+        }
+        to {
+          transform: translateY(0);
+        }
+      }
+      .banner {
+        width: 100%;
+        height: 50px;
+        background-color: var(-dark-blue);
+        color: white;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        padding: 12px;
+        text-align: center;
+        animation-name: slide-in;
+        animation-delay: 3s;
+        animation-fill-mode: backwards;
+        animation-duration: 300ms;
+      }
+      .banner {
+        /* Existing styles */
+        transform: translateY(100%);
+        transition: transform 300ms;
+      }
+      #banner-toggle:checked ~ .banner {
+        transform: translateY(0);
+      }
+
+      #error {
+        background: red;
+        border-radius: 5px;
+      }
+      #success,
+      #error {
+        display: flex;
+        align-items: center;
+      }
+      #buttonBox {
+        display: flex;
+        column-gap: 0.5rem;
+      }
+      #buttonBox > .push {
+        margin-left: auto;
+      }
+
+      .spinner,
+      .spinner:after {
+        box-sizing: border-box;
+      }
+      .spinner {
+        display: inline-block;
+        width: 2.5rem;
+        height: 2.5rem;
+        margin-right: 1rem;
+      }
+      .spinner:after {
+        content: " ";
+        display: block;
+        width: 2rem;
+        height: 2rem;
+        margin: 0.25rem;
+        border-radius: 50%;
+        border: 6.4px solid currentColor;
+        border-color: currentColor transparent currentColor transparent;
+        animation: spinner 1.2s linear infinite;
+      }
+      @keyframes spinner {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+
+  <body ondragover="return false;" ondrop="dropHandler(event)">
+    <!-- Unmodified go wasm javascript code (found at $(go env GOROOT)/lib/wasm/wasm_exec.js) -->
+    <script src="./wasm_exec.js"></script>
+    <h1>SCADFormat WASM</h1>
+    <noscript><h1>Error: This application requires Javascript</h1></noscript>
+    <div id="buttonBox">
+      <button onclick="openFile();">Open File</button>
+      <button onclick="formatText();">Format</button>
+      <div id="spinner" class="spinner push" style="visibility: hidden"></div>
+      <div id="success" style="display: none">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="green">
+          <path d="M9 16.17L4.83 12l-1.41 1.41L9 18.99 21 7l-1.41-1.41z" />
+        </svg>
+        Formatted Successfully
+      </div>
+      <div id="error" style="display: none" onclick="showErrorPopup()">
+        <input type="checkbox" id="show-error-modal" />
+        <label for="show-error-modal" class="show-error-button">
+          Show Error
+        </label>
+        <div class="error-modal">
+          <div class="error-modal-box">
+            <div id="error-message" class="error-modal-content"></div>
+            <label for="show-error-modal" class="close-button"> Close </label>
+          </div>
+        </div>
+      </div>
+      <button onclick="saveOutput();">Save Output</button>
+      <button onclick="copyToClipboard();">Copy to Clipboard</button>
+    </div>
+
+    <div class="container">
+      <div class="textarea-container">
+        <h3>Input</h3>
+        <textarea
+          id="input"
+          onpaste="formatText()"
+          placeholder="Enter SCAD code here..."
+        ></textarea>
+      </div>
+
+      <div class="textarea-container">
+        <h3>Output</h3>
+        <textarea id="output" readonly></textarea>
+      </div>
+    </div>
+    <script>
+      function formatText(inputText) {
+        showSpinner();
+        const input = document.getElementById("input");
+        const output = document.getElementById("output");
+
+        if (inputText) {
+          input.value = inputText;
+        }
+
+        formatString(input.value)
+          .then((formattedString) => {
+            // The go code adds a trailing newline, so trim it
+            formattedString = formattedString.trimEnd();
+            output.value = formattedString;
+            hideSpinner();
+            document.getElementById("success").style.display = "flex";
+            document.getElementById("error").style.display = "none";
+            output.focus();
+            output.select();
+          })
+          .catch((err) => {
+            showError(err);
+          });
+      }
+
+      function saveOutput() {
+        const outputContent = document.getElementById("output").value;
+        const blob = new Blob([outputContent], { type: "text/plain" });
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "formatted_output.txt";
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+
+      // Handle the open file button click
+      function openFile() {
+        // Create a hidden file input element
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.accept = ".txt,.scad,.openscad"; // Only allow .txt files
+
+        // Add an event listener for when the user selects a file
+        fileInput.addEventListener("change", function (e) {
+          const file = e.target.files[0];
+          if (file) {
+            showSpinner();
+            const reader = new FileReader();
+
+            // Read the text from the file
+            reader.onload = function (e) {
+              formatText(e.target.result);
+            };
+
+            reader.onerror = () => {
+              showError("Could not open the file");
+            };
+
+            reader.readAsText(file);
+          }
+        });
+
+        // Trigger the file dialog
+        fileInput.click();
+      }
+
+      function showError(msg) {
+        console.error(msg);
+        document.getElementById("success").style.display = "none";
+        document.getElementById("error").style.display = "flex";
+        hideSpinner();
+        document.getElementById("error-message").innerText = msg;
+        document.getElementById("output").value = "";
+      }
+
+      function showErrorPopup() {}
+
+      // function showErrorMessage(message) {
+      //   // Display the error message
+      //   var errorMessageElement = document.getElementById("errorMessage");
+      //   errorMessageElement.textContent = message;
+      //   errorMessageElement.style.display = "block";
+
+      //   // Set a timeout to hide the error message after 5 seconds (5000 milliseconds)
+      //   setTimeout(function () {
+      //     errorMessageElement.style.display = "none";
+      //   }, 5000);
+      // }
+
+      function showSpinner() {
+        document.getElementById("spinner").style.visibility = "";
+        document.getElementById("success").style.display = "none";
+        document.getElementById("error").style.display = "none";
+      }
+
+      function hideSpinner() {
+        document.getElementById("spinner").style.visibility = "hidden";
+      }
+
+      function copyToClipboard() {
+        const outputContent = document.getElementById("output").value;
+        navigator.clipboard
+          .writeText(outputContent)
+          .then(() => {
+            alert("Output copied to clipboard!");
+          })
+          .catch((err) => {
+            showError(`Failed to copy text: ${err}`);
+            // alert("Failed to copy output to clipboard.");
+          });
+      }
+
+      // Optional: Format on input change
+      // document.getElementById("input").addEventListener("input", formatText);
+
+      function dropHandler(event) {
+        event.preventDefault();
+
+        let file;
+        if (event.dataTransfer.items) {
+          // Use DataTransferItemList interface to access the file(s)
+          file = [...event.dataTransfer.items].find((item) => {
+            return item.kind === "file";
+          });
+          if (file) {
+            file = file.getAsFile();
+          }
+        } else {
+          // Use DataTransfer interface to access the file(s)
+          [...event.dataTransfer.files].find((f) => {
+            return (
+              f.type === "text/plain" || f.type === "application/x-openscad"
+            );
+          });
+        }
+
+        if (file) {
+          showSpinner();
+
+          const reader = new FileReader();
+
+          reader.onload = function (e) {
+            formatText(e.target.result);
+          };
+
+          reader.onerror = () => {
+            showError("Error reading the file");
+          };
+
+          reader.readAsText(file);
+        } else {
+          showError("Invalid file");
+        }
+      }
+
+      const go = new Go();
+      let mod, inst;
+
+      function initWasm() {
+        if (typeof WebAssembly === "undefined") {
+          showError("WASM is not enabled");
+        }
+
+        if (!WebAssembly.instantiateStreaming) {
+          WebAssembly.instantiateStreaming = async (resp, importObject) => {
+            const source = await (await resp).arrayBuffer();
+            return await WebAssembly.instantiate(source, importObject);
+          };
+        }
+
+        async function run() {
+          await go.run(inst);
+          inst = await WebAssembly.instantiate(mod, go.importObject);
+        }
+
+        WebAssembly.instantiateStreaming(
+          fetch("scadformat.wasm"),
+          go.importObject
+        )
+          .then((result) => {
+            mod = result.module;
+            inst = result.instance;
+            // The program runs in the background forever, so we can just start it now
+            run();
+            hideSpinner();
+          })
+          .catch((err) => {
+            showError(err);
+          });
+      }
+
+      // Show the spinner before wasm runs
+      document.getElementById("show-error-modal").checked = false;
+      showSpinner();
+      initWasm();
+    </script>
+  </body>
+</html>
